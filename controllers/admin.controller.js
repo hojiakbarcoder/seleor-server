@@ -5,7 +5,7 @@ const userModel = require('../models/user.model')
 
 class AdminController {
 	constructor() {
-		this.userId = '68258b12c49b985cbc0001b4'
+		this.userId = '68272cbfe44de24593a3eed1'
 		this.createProduct = this.createProduct.bind(this)
 		this.updateProduct = this.updateProduct.bind(this)
 		this.getProducts = this.getProducts.bind(this)

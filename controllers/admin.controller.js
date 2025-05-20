@@ -44,7 +44,6 @@ class AdminController {
 				.limit(+pageSize)
 			const totalProducts = await productModel.countDocuments(query)
 			const isNext = totalProducts > skipAmount + +products.length
-			console.log(isNext)
 			return res.json({ products, isNext })
 		} catch (error) {
 			next(error)
@@ -53,13 +52,57 @@ class AdminController {
 	//[GET] /admin/customers
 	async getCustomers(req, res, next) {
 		try {
-			const userId = this.userId
-			const user = await userModel.findById(userId)
-			if (!user) return res.json({ failure: 'User not found' })
-			if (user.role !== 'admin')
-				return res.json({ failure: 'User is not admin' })
-			const customers = await userModel.find({ role: 'user' })
-			return res.json({ success: 'Got customers successfully', customers })
+			const { searchQuery, filter, page, pageSize } = req.query
+			const skipAmount = (+page - 1) * +pageSize
+			const query = {}
+
+			if (searchQuery) {
+				const escapedSearchQuery = searchQuery.replace(
+					/[.*?^${}()|[\]\\]/g,
+					'\\$&'
+				)
+				query.$or = [
+					{ fullName: { $regex: new RegExp(escapedSearchQuery, 'i') } },
+					{ email: { $regex: new RegExp(escapedSearchQuery, 'i') } },
+				]
+			}
+
+			let sortOptions = { createdAt: -1 }
+			if (filter === 'newest') sortOptions = { createdAt: -1 }
+			else if (filter === 'oldest') sortOptions = { createdAt: 1 }
+
+			const customers = await userModel.aggregate([
+				{ $match: query },
+				{
+					$lookup: {
+						from: 'orders',
+						localField: '_id',
+						foreignField: 'user',
+						as: 'orders',
+					},
+				},
+				{ $addFields: { orderCount: { $size: '$orders' } } },
+				{ $unwind: { path: '$orders', preserveNullAndEmptyArrays: true } },
+				{
+					$group: {
+						_id: '$_id',
+						email: { $first: '$email' },
+						fullName: { $first: '$fullName' },
+						role: { $first: '$role' },
+						createdAt: { $first: '$createdAt' },
+						updatedAt: { $first: '$updatedAt' },
+						totalPrice: { $sum: '$orders.price' },
+						orderCount: { $first: '$orderCount' },
+						isDelete: { $first: '$isDelete' },
+					},
+				},
+				{ $sort: sortOptions },
+				{ $skip: skipAmount },
+				{ $limit: +pageSize },
+			])
+			const totalCustomers = await userModel.countDocuments(query)
+			const isNext = totalCustomers > skipAmount + +customers.length
+			return res.json({ customers, isNext })
 		} catch (error) {
 			next(error)
 		}
@@ -67,13 +110,65 @@ class AdminController {
 	//[GET] /admin/orders
 	async getOrders(req, res, next) {
 		try {
-			const userId = this.userId
-			const user = await userModel.findById(userId)
-			if (!user) return res.json({ failure: 'User not found' })
-			if (user.role !== 'admin')
-				return res.json({ failure: 'User is not admin' })
-			const orders = await orderModel.find()
-			return res.json({ success: 'Got orders successfully', orders })
+			const { searchQuery, filter, page, pageSize } = req.query
+			const skipAmount = (+page - 1) * +pageSize
+			const query = {}
+
+			if (searchQuery) {
+				const escapedSearchQuery = searchQuery.replace(
+					/[.*?^${}()|[\]\\]/g,
+					'\\$&'
+				)
+				query.$or = [
+					{ 'user.fullName': { $regex: new RegExp(escapedSearchQuery, 'i') } },
+					{ 'user.email': { $regex: new RegExp(escapedSearchQuery, 'i') } },
+					{ 'product.title': { $regex: new RegExp(escapedSearchQuery, 'i') } },
+				]
+			}
+
+			let sortOptions = { createdAt: -1 }
+			if (filter === 'newest') sortOptions = { createdAt: -1 }
+			else if (filter === 'oldest') sortOptions = { createdAt: 1 }
+
+			const orders = await orderModel.aggregate([
+				{
+					$lookup: {
+						from: 'users',
+						localField: 'user',
+						foreignField: '_id',
+						as: 'user',
+					},
+				},
+				{ $unwind: '$user' },
+				{
+					$lookup: {
+						from: 'products',
+						localField: 'product',
+						foreignField: '_id',
+						as: 'product',
+					},
+				},
+				{ $unwind: '$product' },
+				{ $match: query },
+				{
+					$project: {
+						'user.email': 1,
+						'user.fullName': 1,
+						'product.title': 1,
+						price: 1,
+						createdAt: 1,
+						status: 1,
+					},
+				},
+				{ $sort: sortOptions },
+				{ $skip: skipAmount },
+				{ $limit: +pageSize },
+			])
+
+			const totalOrders = await orderModel.countDocuments(query)
+			const isNext = totalOrders > skipAmount + +orders.length
+
+			return res.json({ orders, isNext })
 		} catch (error) {
 			next(error)
 		}

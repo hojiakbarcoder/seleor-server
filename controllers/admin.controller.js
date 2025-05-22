@@ -244,7 +244,6 @@ class AdminController {
 	async createProduct(req, res, next) {
 		try {
 			const data = req.body
-			console.log(req.user)
 
 			const newProduct = await productModel.create(data)
 			if (!newProduct) return res.json({ failure: 'Failed creating product' })

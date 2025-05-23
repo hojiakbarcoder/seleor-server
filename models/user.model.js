@@ -10,7 +10,7 @@ const userSchema = new Schema(
 		avatarKey: { type: String },
 		isDelete: { type: Boolean, default: false },
 		deletedAt: { type: Date },
-		favorites: { type: Schema.Types.ObjectId, ref: 'Product' },
+		favorites: [{ type: Schema.Types.ObjectId, ref: 'Product' }],
 		customerId: { type: String },
 	},
 	{ timestamps: true }

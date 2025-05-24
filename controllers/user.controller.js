@@ -1,8 +1,10 @@
+const { getCustomer } = require('../libs/customer')
 const orderModel = require('../models/order.model')
 const productModel = require('../models/product.model')
 const transactionModel = require('../models/transaction.model')
 const userModel = require('../models/user.model')
 const bcrypt = require('bcrypt')
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 
 class UserController {
 	//[GET] /user/products
@@ -151,6 +153,7 @@ class UserController {
 				{
 					$project: {
 						'product.title': 1,
+						'product.image': 1,
 						amount: 1,
 						state: 1,
 						create_time: 1,
@@ -247,6 +250,38 @@ class UserController {
 			// await user.save()
 			return res.json({ status: 200 })
 		} catch (error) {
+			next(error)
+		}
+	}
+	async stripeCheckout(req, res, next) {
+		try {
+			const { productId } = req.body
+			const currentUser = req.user
+			const customer = await getCustomer(currentUser._id)
+			const product = await productModel.findById(productId)
+			const session = await stripe.checkout.sessions.create({
+				payment_method_types: ['card'],
+				customer: customer._id,
+				mode: 'payment',
+				// ui_mode: 'embedded',
+				// return_url: `${process.env.CLIENT_URL}/dashboard/payments`,
+				metadata: {
+					productId: product._id.toString(),
+					userId: currentUser._id.toString(),
+				},
+				line_items: [{ price: product.ctripePriceId, quantity: 1 }],
+				success_url: `${process.env.CLIENT_URL}/success?productId=${product._id}&userId=${currentUser._id}`,
+				cancel_url: `${process.env.CLIENT_URL}/cancel?productId=${product._id}&userId=${currentUser._id}`,
+				payment_intent_data: {
+					metadata: {
+						productId: product._id.toString(),
+						userId: currentUser._id.toString(),
+					},
+				},
+			})
+			return res.json({ status: 200, checkoutUrl: session.url })
+		} catch (error) {
+			console.log(error)
 			next(error)
 		}
 	}

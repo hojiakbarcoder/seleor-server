@@ -8,8 +8,8 @@ const productSchema = new Schema(
 		description: { type: String, required: true },
 		image: { type: String },
 		imageKey: { type: String },
-		ctripePriceId: { type: String },
 		stripeProductId: { type: String },
+		ctripePriceId: { type: String },
 	},
 	{ timestamps: true }
 )

@@ -4,7 +4,7 @@ const transactionSchema = new Schema(
 	{
 		id: { type: String },
 		user: { type: Schema.Types.ObjectId, ref: 'User' },
-		category: { type: Schema.Types.ObjectId, ref: 'Product' },
+		product: { type: Schema.Types.ObjectId, ref: 'Product' },
 		state: { type: Number },
 		amount: { type: Number },
 		create_time: { type: Number, default: Date.now },
